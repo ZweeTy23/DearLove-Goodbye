@@ -109,3 +109,11 @@ on conflict (id) do nothing;
 
 create policy "Allow public read access to media bucket"
   on storage.objects for select using (bucket_id = 'media');
+
+insert into storage.buckets (id, name, public)
+values ('musica', 'musica', true)
+on conflict (id) do nothing;
+
+create policy "Allow public read access to musica bucket"
+  on storage.objects for select using (bucket_id = 'musica');
+

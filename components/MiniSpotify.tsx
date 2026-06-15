@@ -109,8 +109,24 @@ export default function MiniSpotify() {
     if (url === fallbackTrack) return "Melodía Romántica (Piano)";
     const parts = url.split("/");
     let fileName = decodeURIComponent(parts[parts.length - 1]);
+    
     // Strip file extension
     fileName = fileName.replace(/\.[^/.]+$/, "");
+    
+    // Decode Hex-encoded name if applicable
+    if (/^[0-9a-fA-F]+$/.test(fileName) && fileName.length % 2 === 0) {
+      try {
+        const bytes = [];
+        for (let i = 0; i < fileName.length; i += 2) {
+          bytes.push(parseInt(fileName.substring(i, i + 2), 16));
+        }
+        const decoded = new TextDecoder("utf-8").decode(new Uint8Array(bytes));
+        if (!/[\x00-\x1F\x7F]/.test(decoded)) {
+          fileName = decoded.replace(/\.[^/.]+$/, ""); // Strip inner extension if decodes to one
+        }
+      } catch (e) {}
+    }
+
     // Remove spotdown.org suffix if present
     fileName = fileName.replace(/_?spotdown\.org/gi, "");
     // Replace dashes and underscores with spaces
