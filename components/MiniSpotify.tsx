@@ -10,6 +10,12 @@ export default function MiniSpotify() {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.7);
   const [isMinimized, setIsMinimized] = useState(false);
+  
+  // New play options states
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const fallbackTrack = "https://assets.mixkit.co/music/preview/mixkit-beautiful-dream-12.mp3";
@@ -65,7 +71,12 @@ export default function MiniSpotify() {
 
   const handleTrackEnded = () => {
     if (playlist.length > 1) {
-      setCurrentTrackIndex((prev) => (prev + 1) % playlist.length);
+      if (isShuffle) {
+        const randomIndex = Math.floor(Math.random() * playlist.length);
+        setCurrentTrackIndex(randomIndex);
+      } else {
+        setCurrentTrackIndex((prev) => (prev + 1) % playlist.length);
+      }
     } else if (audioRef.current) {
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(() => setIsPlaying(false));
@@ -90,22 +101,30 @@ export default function MiniSpotify() {
 
   const handleNext = () => {
     if (playlist.length > 0) {
-      setCurrentTrackIndex((prev) => (prev + 1) % playlist.length);
+      if (isShuffle && playlist.length > 1) {
+        const randomIndex = Math.floor(Math.random() * playlist.length);
+        setCurrentTrackIndex(randomIndex);
+      } else {
+        setCurrentTrackIndex((prev) => (prev + 1) % playlist.length);
+      }
       setIsPlaying(true);
     }
   };
 
   const handlePrev = () => {
     if (playlist.length > 0) {
-      setCurrentTrackIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
+      if (isShuffle && playlist.length > 1) {
+        const randomIndex = Math.floor(Math.random() * playlist.length);
+        setCurrentTrackIndex(randomIndex);
+      } else {
+        setCurrentTrackIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
+      }
       setIsPlaying(true);
     }
   };
 
-  // Get display name of track
-  const getTrackName = () => {
-    if (playlist.length === 0) return "Cargando...";
-    const url = playlist[currentTrackIndex];
+  // Helper to extract clean track name from url
+  const getTrackNameFromUrl = (url: string) => {
     if (url === fallbackTrack) return "Melodía Romántica (Piano)";
     const parts = url.split("/");
     let fileName = decodeURIComponent(parts[parts.length - 1]);
@@ -136,6 +155,12 @@ export default function MiniSpotify() {
     // Clean up multiple spaces
     fileName = fileName.replace(/\s+/g, " ").trim();
     return fileName || "Canción de Amor";
+  };
+
+  // Get display name of track
+  const getTrackName = () => {
+    if (playlist.length === 0) return "Cargando...";
+    return getTrackNameFromUrl(playlist[currentTrackIndex]);
   };
 
   const formatTime = (secs: number) => {
@@ -210,7 +235,9 @@ export default function MiniSpotify() {
             display: "flex",
             flexDirection: "column",
             gap: "12px",
-            backdropFilter: "blur(20px)"
+            backdropFilter: "blur(20px)",
+            maxHeight: isPlaylistOpen ? "460px" : "240px",
+            transition: "max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
           }}
         >
           {/* Header */}
@@ -218,13 +245,30 @@ export default function MiniSpotify() {
             <span style={{ fontSize: "0.75rem", fontWeight: "bold", textTransform: "uppercase", color: "var(--accent-light)", letterSpacing: "1px" }}>
               Reproductor Romántico
             </span>
-            <button
-              onClick={() => setIsMinimized(true)}
-              style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "0.8rem" }}
-              title="Minimizar reproductor"
-            >
-              ✕
-            </button>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              {/* Playlist button */}
+              <button
+                onClick={() => setIsPlaylistOpen(!isPlaylistOpen)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: isPlaylistOpen ? "var(--accent-light)" : "var(--text-muted)",
+                  cursor: "pointer",
+                  fontSize: "0.85rem"
+                }}
+                title="Lista de reproducción"
+              >
+                ☰
+              </button>
+              {/* Minimize button */}
+              <button
+                onClick={() => setIsMinimized(true)}
+                style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "0.8rem" }}
+                title="Minimizar reproductor"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {/* Album Info & Vinyl Disc */}
@@ -292,7 +336,22 @@ export default function MiniSpotify() {
           </div>
 
           {/* Control Buttons */}
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "16px" }}>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "14px" }}>
+            {/* Shuffle */}
+            <button
+              onClick={() => setIsShuffle(!isShuffle)}
+              style={{
+                background: "none",
+                border: "none",
+                color: isShuffle ? "var(--accent-light)" : "var(--text-muted)",
+                cursor: "pointer",
+                fontSize: "1rem",
+                transition: "color 0.2s"
+              }}
+              title={isShuffle ? "Desactivar Aleatorio" : "Activar Aleatorio"}
+            >
+              🔀
+            </button>
             {/* Prev */}
             <button
               onClick={handlePrev}
@@ -355,6 +414,92 @@ export default function MiniSpotify() {
             />
             <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>🔊</span>
           </div>
+
+          {/* Playlist Drawer with Search */}
+          {isPlaylistOpen && (
+            <div
+              className="animate-slide"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+                paddingTop: "10px",
+                marginTop: "4px"
+              }}
+            >
+              <input
+                type="text"
+                placeholder="🔍 Buscar canción..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input-glass"
+                style={{
+                  width: "100%",
+                  padding: "6px 10px",
+                  fontSize: "0.75rem",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  background: "rgba(0, 0, 0, 0.2)"
+                }}
+              />
+              <div 
+                style={{ 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  gap: "4px",
+                  maxHeight: "150px",
+                  overflowY: "auto",
+                  paddingRight: "4px"
+                }}
+              >
+                {playlist
+                  .map((url, index) => ({ url, index, name: getTrackNameFromUrl(url) }))
+                  .filter((item) => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                  .map((item) => (
+                    <div
+                      key={item.index}
+                      onClick={() => {
+                        setCurrentTrackIndex(item.index);
+                        setIsPlaying(true);
+                      }}
+                      style={{
+                        padding: "6px 8px",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "0.75rem",
+                        background: item.index === currentTrackIndex ? "rgba(236, 72, 153, 0.15)" : "transparent",
+                        color: item.index === currentTrackIndex ? "var(--accent-light)" : "var(--text-secondary)",
+                        fontWeight: item.index === currentTrackIndex ? "bold" : "normal",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        transition: "background 0.2s"
+                      }}
+                      onMouseEnter={(e) => {
+                        if (item.index !== currentTrackIndex) e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (item.index !== currentTrackIndex) e.currentTarget.style.background = "transparent";
+                      }}
+                    >
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: "10px" }}>
+                        {item.name}
+                      </span>
+                      {item.index === currentTrackIndex && <span>▶</span>}
+                    </div>
+                  ))}
+                {playlist
+                  .map((url, index) => ({ url, index, name: getTrackNameFromUrl(url) }))
+                  .filter((item) => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                  .length === 0 && (
+                  <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", textAlign: "center", padding: "10px 0" }}>
+                    No se encontraron canciones
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>
