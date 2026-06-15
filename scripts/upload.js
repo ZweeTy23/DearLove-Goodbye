@@ -176,6 +176,20 @@ async function main() {
   const uploadFile = async (item) => {
     let finalFilename = item.filename;
     let finalExt = item.ext;
+
+    if (item.ext === '.heic') {
+      finalFilename = item.filename.replace(/\.heic$/i, '.jpg');
+      finalExt = '.jpg';
+    }
+
+    const bucketPath = finalFilename; // Keep it simple: filename is the path
+
+    // Skip if already uploaded
+    if (uploadedPathsSet.has(bucketPath)) {
+      skippedCount++;
+      return;
+    }
+
     let fileBuffer;
     let contentType;
 
@@ -191,8 +205,6 @@ async function main() {
         });
         
         fileBuffer = jpgBuffer;
-        finalFilename = item.filename.replace(/\.heic$/i, '.jpg');
-        finalExt = '.jpg';
         contentType = 'image/jpeg';
         console.log(`[HEIC] Successfully converted ${item.filename} -> ${finalFilename}`);
       } catch (err) {
@@ -204,14 +216,6 @@ async function main() {
       fileBuffer = fs.readFileSync(item.filePath);
       contentType = item.mediaType === 'image' ? `image/${finalExt.slice(1)}` : `video/${finalExt.slice(1)}`;
       if (finalExt === '.jpg' || finalExt === '.jpeg') contentType = 'image/jpeg';
-    }
-
-    const bucketPath = finalFilename; // Keep it simple: filename is the path
-
-    // Skip if already uploaded
-    if (uploadedPathsSet.has(bucketPath)) {
-      skippedCount++;
-      return;
     }
 
     console.log(`Uploading [${item.mediaType.toUpperCase()}] ${finalFilename} (${(item.stats.size / (1024 * 1024)).toFixed(2)} MB)...`);
